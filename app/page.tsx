@@ -11,7 +11,6 @@ const splitAmount = (amount: number): number[] => {
     return []
   }
 
-  // If the amount can be paid in one transaction
   if (amount <= MAX_AMOUNT_PER_QR) {
     return [amount]
   }
@@ -20,21 +19,11 @@ const splitAmount = (amount: number): number[] => {
   let remaining = amount
 
   while (remaining > 0) {
-    /*
-     * If the remaining amount itself can fit
-     * into one QR, use it directly.
-     */
     if (remaining <= MAX_AMOUNT_PER_QR) {
       amounts.push(remaining)
       break
     }
 
-    /*
-     * Keep enough money for the remaining QR(s).
-     *
-     * We choose a value between 1000 and 2000,
-     * but never greater than the remaining amount.
-     */
     const maxAllowed = Math.min(
       MAX_AMOUNT_PER_QR,
       remaining - MIN_AMOUNT_PER_QR
@@ -51,7 +40,6 @@ const splitAmount = (amount: number): number[] => {
       ) + minAllowed
 
     amounts.push(split)
-
     remaining -= split
   }
 
@@ -59,9 +47,9 @@ const splitAmount = (amount: number): number[] => {
 }
 
 const HOME_PAGE = () => {
-  const [upiId, setUpiId] = useState<string>("")
-  const [upiName, setUpiName] = useState<string>("")
-  const [ammount, setAmmount] = useState<number>(0)
+  const [upiId, setUpiId] = useState("")
+  const [upiName, setUpiName] = useState("")
+  const [ammount, setAmmount] = useState(0)
 
   const splittedAmmount = useMemo(() => {
     return splitAmount(ammount)
@@ -74,85 +62,159 @@ const HOME_PAGE = () => {
 
     if (type === "number") {
       setAmmount(Number(value))
+      return
     }
 
-    if (type === "text" && name === "upiId") {
+    if (name === "upiId") {
       setUpiId(value)
+      return
     }
 
-    if (type === "text" && name === "upiName") {
+    if (name === "upiName") {
       setUpiName(value)
     }
   }
 
+  const generateUPIUrl = (amount: number) => {
+    const params = new URLSearchParams({
+      pa: upiId.trim(),
+      pn: upiName.trim(),
+      am: amount.toFixed(2),
+      cu: "INR",
+    })
+
+    return `upi://pay?${params.toString()}`
+  }
+
+  const isValidUPI =
+    upiId.trim().length > 0 &&
+    upiName.trim().length > 0
+
   return (
-    <main className="flex flex-col">
+    <main className="flex flex-col min-h-screen">
 
-      <form className="flex flex-col w-full px-4 py-2">
+      {/* Form */}
+      <form className="flex flex-col w-full px-4 py-2 gap-2">
 
-        <label htmlFor="upiId">
+        <label
+          htmlFor="upiId"
+          className="text-zinc-950 font-medium"
+        >
           UPI ID
         </label>
 
         <input
+          id="upiId"
           type="text"
           name="upiId"
           value={upiId}
           onChange={handleOnChangeFormValue}
+          placeholder="example@upi"
+          className="border border-zinc-950/15 rounded-lg px-3 py-2 outline-none focus:border-zinc-950"
         />
 
-        <label htmlFor="upiName">
+        <label
+          htmlFor="upiName"
+          className="text-zinc-950 font-medium"
+        >
           UPI Name
         </label>
 
         <input
+          id="upiName"
           type="text"
           name="upiName"
           value={upiName}
           onChange={handleOnChangeFormValue}
+          placeholder="Your Name"
+          className="border border-zinc-950/15 rounded-lg px-3 py-2 outline-none focus:border-zinc-950"
         />
 
-        <label htmlFor="ammount">
+        <label
+          htmlFor="ammount"
+          className="text-zinc-950 font-medium"
+        >
           Amount
         </label>
 
         <input
+          id="ammount"
           type="number"
           name="ammount"
           min="0"
           step="1"
           value={ammount || ""}
           onChange={handleOnChangeFormValue}
+          placeholder="Enter amount"
+          className="border border-zinc-950/15 rounded-lg px-3 py-2 outline-none focus:border-zinc-950"
         />
 
       </form>
 
-      <div className="flex flex-wrap items-center justify-center gap-4 w-full">
+      {/* QR Cards */}
+      <div className="flex flex-wrap items-center justify-center gap-4 w-full p-4">
 
-        {splittedAmmount.map((amount, index) => (
-          <div
-            className="flex flex-col justify-center items-center gap-3 mx-5"
-            key={`qr_code_${index}_${amount}`}
-          >
+        {isValidUPI &&
+          splittedAmmount.map((amount, index) => {
 
-            <QRCodeCanvas
-              value={
-                `upi://pay` +
-                `?pa=${encodeURIComponent(upiId)}` +
-                `&pn=${encodeURIComponent(upiName)}` +
-                `&am=${amount}` +
-                `&cu=INR`
-              }
-              size={250}
-              level="H"
-            />
+            const upiUrl = generateUPIUrl(amount)
 
-            <div className="font-mono text-2xl">
-              ₹{amount}
-            </div>
+            return (
+              <div
+                key={`qr_code_${index}_${amount}`}
+                className="
+                  relative
+                  flex
+                  flex-col
+                  justify-center
+                  items-center
+                  gap-3
+                  p-4
+                  mx-2
+                  rounded-2xl
+                  bg-[#e0e0e0]
+                  border
+                  border-zinc-950/15
+                  shadow-lg
+                "
+              >
 
-          </div>
-        ))}
+                {/* Checkbox */}
+                <div className="absolute top-3 right-3">
+                  <input
+                    type="checkbox"
+                    className="
+                      h-5
+                      w-5
+                      cursor-pointer
+                      accent-zinc-950
+                    "
+                  />
+                </div>
+
+                {/* QR Code */}
+                <QRCodeCanvas
+                  value={upiUrl}
+                  size={250}
+                  level="M"
+                  includeMargin={true}
+                />
+
+                {/* Amount */}
+                <div
+                  className="
+                    font-mono
+                    text-2xl
+                    font-semibold
+                    text-zinc-950
+                  "
+                >
+                  ₹{amount}
+                </div>
+
+              </div>
+            )
+          })}
 
       </div>
 
